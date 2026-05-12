@@ -187,6 +187,7 @@
           <div class="actions">
             <button class="primary" id="btnPrint" type="button">Cetak (Print)</button>
             <button id="btnDownload" type="button">Unduh PNG</button>
+            <button id="btnPdf" type="button">Unduh PDF 3×1 m</button>
             <button id="btnPick" type="button">Pilih Gambar</button>
             <input id="fileInput" type="file" accept="image/*" />
             <button id="btnFit" type="button">Fit Lebar</button>
@@ -214,16 +215,167 @@
       const btnPrint = document.getElementById("btnPrint");
       const btnDownload = document.getElementById("btnDownload");
       const btnFit = document.getElementById("btnFit");
+      const btnPdf = document.getElementById("btnPdf");
       const btnPick = document.getElementById("btnPick");
       const fileInput = document.getElementById("fileInput");
       const statusEl = document.getElementById("status");
       let objectUrl = null;
       let currentFileName = "spanduk.png";
+      let lastLoadedFile = null;
+
+      const SPANDUK_WIDTH_MM = 3000;
+      const SPANDUK_HEIGHT_MM = 1000;
 
       const setStatus = (message, { show = true } = {}) => {
         if (!statusEl) return;
         statusEl.textContent = message || "";
         statusEl.classList.toggle("show", Boolean(show && message));
+      };
+
+      const mmToPt = (mm) => (mm * 72) / 25.4;
+      const formatPt = (n) => Number(n).toFixed(3);
+
+      const downloadBlob = (blob, fileName) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.download = fileName || "spanduk";
+        a.href = url;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+      };
+
+      const getCurrentImageBlob = async () => {
+        if (lastLoadedFile) return lastLoadedFile;
+        const src = img.currentSrc || img.src;
+        try {
+          const res = await fetch(src);
+          if (!res.ok) return null;
+          return await res.blob();
+        } catch {
+          return null;
+        }
+      };
+
+      const blobToUint8 = async (blob) => new Uint8Array(await blob.arrayBuffer());
+
+      const canvasToJpegBlob = (canvas, quality = 0.98) =>
+        new Promise((resolve) => canvas.toBlob((b) => resolve(b), "image/jpeg", quality));
+
+      const buildPdfFromJpeg = ({ jpegBytes, imgPixelWidth, imgPixelHeight }) => {
+        const pageW = mmToPt(SPANDUK_WIDTH_MM);
+        const pageH = mmToPt(SPANDUK_HEIGHT_MM);
+        const pageAspect = pageW / pageH;
+        const imgAspect = imgPixelWidth / imgPixelHeight;
+
+        let drawW = pageW;
+        let drawH = pageH;
+        let x = 0;
+        let y = 0;
+
+        if (imgAspect >= pageAspect) {
+          drawH = pageH;
+          drawW = pageH * imgAspect;
+          x = (pageW - drawW) / 2;
+          y = 0;
+        } else {
+          drawW = pageW;
+          drawH = pageW / imgAspect;
+          x = 0;
+          y = (pageH - drawH) / 2;
+        }
+
+        const content =
+          `q\n` +
+          `0 0 ${formatPt(pageW)} ${formatPt(pageH)} re W n\n` +
+          `${formatPt(drawW)} 0 0 ${formatPt(drawH)} ${formatPt(x)} ${formatPt(y)} cm\n` +
+          `/Im0 Do\n` +
+          `Q\n`;
+
+        const encoder = new TextEncoder();
+        const text = (s) => encoder.encode(s);
+        const binHeader = new Uint8Array([0xe2, 0xe3, 0xcf, 0xd3]);
+
+        const objects = [];
+
+        const obj1 = text(`1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n`);
+        const obj2 = text(`2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n`);
+        const obj3 = text(
+          `3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${formatPt(pageW)} ${formatPt(
+            pageH
+          )}] /Resources << /XObject << /Im0 4 0 R >> /ProcSet [/PDF /ImageC] >> /Contents 5 0 R >>\nendobj\n`
+        );
+
+        const imgDict = text(
+          `4 0 obj\n<< /Type /XObject /Subtype /Image /Width ${Math.round(imgPixelWidth)} /Height ${Math.round(
+            imgPixelHeight
+          )} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpegBytes.length} >>\nstream\n`
+        );
+        const imgEnd = text(`\nendstream\nendobj\n`);
+
+        const contentBytes = text(content);
+        const contentObjStart = text(`5 0 obj\n<< /Length ${contentBytes.length} >>\nstream\n`);
+        const contentObjEnd = text(`\nendstream\nendobj\n`);
+
+        objects.push(obj1, obj2, obj3, imgDict, jpegBytes, imgEnd, contentObjStart, contentBytes, contentObjEnd);
+
+        const header = new Uint8Array(text("%PDF-1.4\n%").length + binHeader.length + text("\n").length);
+        header.set(text("%PDF-1.4\n%"), 0);
+        header.set(binHeader, text("%PDF-1.4\n%").length);
+        header.set(text("\n"), text("%PDF-1.4\n%").length + binHeader.length);
+
+        const chunks = [header];
+        const offsets = [0];
+        let size = header.length;
+
+        const objOffsets = [0];
+        const push = (u8) => {
+          chunks.push(u8);
+          size += u8.length;
+        };
+
+        const startObj = () => {
+          objOffsets.push(size);
+        };
+
+        startObj();
+        push(obj1);
+        startObj();
+        push(obj2);
+        startObj();
+        push(obj3);
+        startObj();
+        push(imgDict);
+        push(jpegBytes);
+        push(imgEnd);
+        startObj();
+        push(contentObjStart);
+        push(contentBytes);
+        push(contentObjEnd);
+
+        const xrefStart = size;
+        const xrefLines = [];
+        xrefLines.push("xref\n");
+        xrefLines.push("0 6\n");
+        xrefLines.push("0000000000 65535 f \n");
+        for (let i = 1; i <= 5; i++) {
+          const off = objOffsets[i];
+          const line = String(off).padStart(10, "0") + " 00000 n \n";
+          xrefLines.push(line);
+        }
+
+        const trailer =
+          `trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF\n`;
+
+        push(text(xrefLines.join("")));
+        push(text(trailer));
+
+        const out = new Uint8Array(size);
+        let cursor = 0;
+        for (const c of chunks) {
+          out.set(c, cursor);
+          cursor += c.length;
+        }
+        return out;
       };
 
       const loadFile = (file) => {
@@ -233,6 +385,7 @@
           return;
         }
         if (objectUrl) URL.revokeObjectURL(objectUrl);
+        lastLoadedFile = file;
         objectUrl = URL.createObjectURL(file);
         currentFileName = file.name || "spanduk.png";
         img.src = objectUrl;
@@ -262,7 +415,18 @@
 
       img.addEventListener("load", () => {
         if (img.naturalWidth && img.naturalHeight) {
-          setStatus(`Siap: ${img.naturalWidth}×${img.naturalHeight} (${currentFileName})`, { show: true });
+          const widthIn = SPANDUK_WIDTH_MM / 25.4;
+          const heightIn = SPANDUK_HEIGHT_MM / 25.4;
+          const dpiW = img.naturalWidth / widthIn;
+          const dpiH = img.naturalHeight / heightIn;
+          const minDpi = Math.min(dpiW, dpiH);
+          const note = minDpi < 150 ? " (perlu file resolusi lebih besar agar tidak pecah saat cetak 3×1 m)" : "";
+          setStatus(
+            `Siap: ${img.naturalWidth}×${img.naturalHeight} (${currentFileName}) • DPI @3×1 m: ${dpiW.toFixed(
+              1
+            )}×${dpiH.toFixed(1)}${note}`,
+            { show: true }
+          );
         } else {
           setStatus("");
         }
@@ -273,25 +437,74 @@
 
       btnDownload.addEventListener("click", async () => {
         await img.decode().catch(() => {});
-        const canvas = document.createElement("canvas");
         const naturalWidth = img.naturalWidth || 0;
         const naturalHeight = img.naturalHeight || 0;
         if (!naturalWidth || !naturalHeight) {
           setStatus("Belum ada gambar yang berhasil dimuat untuk diunduh.");
           return;
         }
-        canvas.width = naturalWidth;
-        canvas.height = naturalHeight;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) {
-          setStatus("Gagal menyiapkan canvas untuk unduhan.");
+        try {
+          const blob = await getCurrentImageBlob();
+          if (blob) {
+            const name = currentFileName || "spanduk";
+            downloadBlob(blob, name);
+            return;
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = naturalWidth;
+          canvas.height = naturalHeight;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) throw new Error("Canvas tidak tersedia.");
+          ctx.drawImage(img, 0, 0);
+          const pngBlob = await new Promise((resolve) => canvas.toBlob((b) => resolve(b), "image/png"));
+          if (!pngBlob) throw new Error("Gagal membuat PNG.");
+          downloadBlob(pngBlob, currentFileName?.toLowerCase().endsWith(".png") ? currentFileName : "spanduk.png");
+        } catch (e) {
+          setStatus("Gagal mengunduh gambar.");
+        }
+      });
+
+      btnPdf.addEventListener("click", async () => {
+        await img.decode().catch(() => {});
+        const naturalWidth = img.naturalWidth || 0;
+        const naturalHeight = img.naturalHeight || 0;
+        if (!naturalWidth || !naturalHeight) {
+          setStatus("Belum ada gambar yang berhasil dimuat untuk dibuat PDF.");
           return;
         }
-        ctx.drawImage(img, 0, 0);
-        const a = document.createElement("a");
-        a.download = currentFileName.toLowerCase().endsWith(".png") ? currentFileName : "spanduk.png";
-        a.href = canvas.toDataURL("image/png");
-        a.click();
+
+        btnPdf.disabled = true;
+        try {
+          const blob = await getCurrentImageBlob();
+          let jpegBytes;
+          if (blob && blob.type === "image/jpeg") {
+            jpegBytes = await blobToUint8(blob);
+          } else {
+            const canvas = document.createElement("canvas");
+            canvas.width = naturalWidth;
+            canvas.height = naturalHeight;
+            const ctx = canvas.getContext("2d");
+            if (!ctx) throw new Error("Canvas tidak tersedia.");
+            ctx.drawImage(img, 0, 0);
+            const jpegBlob = await canvasToJpegBlob(canvas, 0.98);
+            if (!jpegBlob) throw new Error("Gagal membuat JPEG.");
+            jpegBytes = await blobToUint8(jpegBlob);
+          }
+
+          const pdfBytes = buildPdfFromJpeg({
+            jpegBytes,
+            imgPixelWidth: naturalWidth,
+            imgPixelHeight: naturalHeight,
+          });
+
+          const pdfBlob = new Blob([pdfBytes], { type: "application/pdf" });
+          downloadBlob(pdfBlob, "spanduk-3x1m.pdf");
+          setStatus("PDF 3×1 m siap diunduh.", { show: true });
+        } catch (e) {
+          setStatus("Gagal membuat PDF 3×1 m.");
+        } finally {
+          btnPdf.disabled = false;
+        }
       });
     </script>
   </body>
