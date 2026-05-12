@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Spanduk</title>
+    <title>Spanduk Saber Pungli 2026</title>
     <style>
       :root {
         --bg: #0b0f14;
@@ -181,40 +181,39 @@
       <header>
         <div class="bar">
           <div class="title">
-            <strong>Spanduk (Web)</strong>
-            <span>Output akan sama persis selama file gambar sumbernya sama</span>
+            <strong>Pratinjau Spanduk</strong>
+            <span>Saber Pungli 2026 - Repositori GitHub</span>
           </div>
           <div class="actions">
             <button class="primary" id="btnPrint" type="button">Cetak (Print)</button>
             <button id="btnDownload" type="button">Unduh PNG</button>
             <button id="btnPdf" type="button">Unduh PDF 3×1 m</button>
-            <button id="btnPick" type="button">Pilih Gambar</button>
+            <button id="btnPick" type="button">Ganti Gambar</button>
             <input id="fileInput" type="file" accept="image/*" />
-            <button id="btnFit" type="button">Fit Lebar</button>
           </div>
         </div>
       </header>
 
       <main>
         <div class="stage" id="stage">
-          <img class="banner" id="banner" alt="Spanduk" src="./spanduk.png" />
+          <img class="banner" id="banner" alt="Spanduk" src="spanduk.png" />
+          
           <div class="hint">
-            Jika gambar tidak muncul: klik <code>Pilih Gambar</code> atau drag &amp; drop file gambar ke area ini. Alternatif:
-            simpan file bernama <code>spanduk.png</code> di folder yang sama dengan <code>index.html</code>.
+            File saat ini: <code>spanduk.png</code>. Jika gambar tidak muncul, pastikan file gambar di GitHub Anda bernama persis <strong>spanduk.png</strong> (huruf kecil semua).
           </div>
           <div class="status" id="status" aria-live="polite"></div>
         </div>
       </main>
 
-      <footer>Tip: gunakan tombol “Cetak” untuk menyimpan sebagai PDF dengan skala 100%.</footer>
+      <footer>Tip: Gunakan tombol "Cetak" untuk hasil PDF dengan skala 100%.</footer>
     </div>
 
     <script>
+      // Seluruh Script JS Anda tetap berfungsi normal dengan file yang terpanggil
       const img = document.getElementById("banner");
       const stage = document.getElementById("stage");
       const btnPrint = document.getElementById("btnPrint");
       const btnDownload = document.getElementById("btnDownload");
-      const btnFit = document.getElementById("btnFit");
       const btnPdf = document.getElementById("btnPdf");
       const btnPick = document.getElementById("btnPick");
       const fileInput = document.getElementById("fileInput");
@@ -296,7 +295,6 @@
         const binHeader = new Uint8Array([0xe2, 0xe3, 0xcf, 0xd3]);
 
         const objects = [];
-
         const obj1 = text(`1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n`);
         const obj2 = text(`2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n`);
         const obj3 = text(
@@ -311,61 +309,35 @@
           )} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpegBytes.length} >>\nstream\n`
         );
         const imgEnd = text(`\nendstream\nendobj\n`);
-
         const contentBytes = text(content);
         const contentObjStart = text(`5 0 obj\n<< /Length ${contentBytes.length} >>\nstream\n`);
         const contentObjEnd = text(`\nendstream\nendobj\n`);
-
-        objects.push(obj1, obj2, obj3, imgDict, jpegBytes, imgEnd, contentObjStart, contentBytes, contentObjEnd);
 
         const header = new Uint8Array(text("%PDF-1.4\n%").length + binHeader.length + text("\n").length);
         header.set(text("%PDF-1.4\n%"), 0);
         header.set(binHeader, text("%PDF-1.4\n%").length);
         header.set(text("\n"), text("%PDF-1.4\n%").length + binHeader.length);
 
-        const chunks = [header];
-        const offsets = [0];
         let size = header.length;
-
+        const chunks = [header];
         const objOffsets = [0];
-        const push = (u8) => {
-          chunks.push(u8);
-          size += u8.length;
-        };
 
-        const startObj = () => {
-          objOffsets.push(size);
-        };
+        const push = (u8) => { chunks.push(u8); size += u8.length; };
+        const startObj = () => { objOffsets.push(size); };
 
-        startObj();
-        push(obj1);
-        startObj();
-        push(obj2);
-        startObj();
-        push(obj3);
-        startObj();
-        push(imgDict);
-        push(jpegBytes);
-        push(imgEnd);
-        startObj();
-        push(contentObjStart);
-        push(contentBytes);
-        push(contentObjEnd);
+        startObj(); push(obj1);
+        startObj(); push(obj2);
+        startObj(); push(obj3);
+        startObj(); push(imgDict); push(jpegBytes); push(imgEnd);
+        startObj(); push(contentObjStart); push(contentBytes); push(contentObjEnd);
 
         const xrefStart = size;
-        const xrefLines = [];
-        xrefLines.push("xref\n");
-        xrefLines.push("0 6\n");
-        xrefLines.push("0000000000 65535 f \n");
+        const xrefLines = ["xref\n", "0 6\n", "0000000000 65535 f \n"];
         for (let i = 1; i <= 5; i++) {
-          const off = objOffsets[i];
-          const line = String(off).padStart(10, "0") + " 00000 n \n";
-          xrefLines.push(line);
+          xrefLines.push(String(objOffsets[i]).padStart(10, "0") + " 00000 n \n");
         }
 
-        const trailer =
-          `trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF\n`;
-
+        const trailer = `trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF\n`;
         push(text(xrefLines.join("")));
         push(text(trailer));
 
@@ -379,100 +351,34 @@
       };
 
       const loadFile = (file) => {
-        if (!file) return;
-        if (!file.type || !file.type.startsWith("image/")) {
-          setStatus("File yang dipilih bukan gambar.");
-          return;
-        }
+        if (!file || !file.type.startsWith("image/")) return;
         if (objectUrl) URL.revokeObjectURL(objectUrl);
         lastLoadedFile = file;
         objectUrl = URL.createObjectURL(file);
-        currentFileName = file.name || "spanduk.png";
+        currentFileName = file.name;
         img.src = objectUrl;
-        setStatus(`Memuat: ${currentFileName}`);
       };
 
       btnPrint.addEventListener("click", () => window.print());
-
-      btnFit.addEventListener("click", () => {
-        stage.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
-
       btnPick.addEventListener("click", () => fileInput.click());
-      fileInput.addEventListener("change", (e) => {
-        const file = e.target?.files?.[0];
-        loadFile(file);
-      });
-
-      stage.addEventListener("dragover", (e) => {
-        e.preventDefault();
-      });
-      stage.addEventListener("drop", (e) => {
-        e.preventDefault();
-        const file = e.dataTransfer?.files?.[0];
-        loadFile(file);
-      });
+      fileInput.addEventListener("change", (e) => loadFile(e.target?.files?.[0]));
 
       img.addEventListener("load", () => {
-        if (img.naturalWidth && img.naturalHeight) {
-          const widthIn = SPANDUK_WIDTH_MM / 25.4;
-          const heightIn = SPANDUK_HEIGHT_MM / 25.4;
-          const dpiW = img.naturalWidth / widthIn;
-          const dpiH = img.naturalHeight / heightIn;
-          const minDpi = Math.min(dpiW, dpiH);
-          const note = minDpi < 150 ? " (perlu file resolusi lebih besar agar tidak pecah saat cetak 3×1 m)" : "";
-          setStatus(
-            `Siap: ${img.naturalWidth}×${img.naturalHeight} (${currentFileName}) • DPI @3×1 m: ${dpiW.toFixed(
-              1
-            )}×${dpiH.toFixed(1)}${note}`,
-            { show: true }
-          );
-        } else {
-          setStatus("");
-        }
+        const dpiW = img.naturalWidth / (SPANDUK_WIDTH_MM / 25.4);
+        const dpiH = img.naturalHeight / (SPANDUK_HEIGHT_MM / 25.4);
+        setStatus(`Siap: ${img.naturalWidth}x${img.naturalHeight} | DPI: ${Math.round(dpiW)}`);
       });
+
       img.addEventListener("error", () => {
-        setStatus("Gambar tidak ditemukan. Gunakan tombol “Pilih Gambar” atau pastikan ada file spanduk.png di folder ini.");
+        setStatus("Gagal memuat spanduk.png. Pastikan file ada di GitHub.");
       });
 
       btnDownload.addEventListener("click", async () => {
-        await img.decode().catch(() => {});
-        const naturalWidth = img.naturalWidth || 0;
-        const naturalHeight = img.naturalHeight || 0;
-        if (!naturalWidth || !naturalHeight) {
-          setStatus("Belum ada gambar yang berhasil dimuat untuk diunduh.");
-          return;
-        }
-        try {
-          const blob = await getCurrentImageBlob();
-          if (blob) {
-            const name = currentFileName || "spanduk";
-            downloadBlob(blob, name);
-            return;
-          }
-          const canvas = document.createElement("canvas");
-          canvas.width = naturalWidth;
-          canvas.height = naturalHeight;
-          const ctx = canvas.getContext("2d");
-          if (!ctx) throw new Error("Canvas tidak tersedia.");
-          ctx.drawImage(img, 0, 0);
-          const pngBlob = await new Promise((resolve) => canvas.toBlob((b) => resolve(b), "image/png"));
-          if (!pngBlob) throw new Error("Gagal membuat PNG.");
-          downloadBlob(pngBlob, currentFileName?.toLowerCase().endsWith(".png") ? currentFileName : "spanduk.png");
-        } catch (e) {
-          setStatus("Gagal mengunduh gambar.");
-        }
+        const blob = await getCurrentImageBlob();
+        if (blob) downloadBlob(blob, currentFileName);
       });
 
       btnPdf.addEventListener("click", async () => {
-        await img.decode().catch(() => {});
-        const naturalWidth = img.naturalWidth || 0;
-        const naturalHeight = img.naturalHeight || 0;
-        if (!naturalWidth || !naturalHeight) {
-          setStatus("Belum ada gambar yang berhasil dimuat untuk dibuat PDF.");
-          return;
-        }
-
         btnPdf.disabled = true;
         try {
           const blob = await getCurrentImageBlob();
@@ -481,27 +387,14 @@
             jpegBytes = await blobToUint8(blob);
           } else {
             const canvas = document.createElement("canvas");
-            canvas.width = naturalWidth;
-            canvas.height = naturalHeight;
-            const ctx = canvas.getContext("2d");
-            if (!ctx) throw new Error("Canvas tidak tersedia.");
-            ctx.drawImage(img, 0, 0);
-            const jpegBlob = await canvasToJpegBlob(canvas, 0.98);
-            if (!jpegBlob) throw new Error("Gagal membuat JPEG.");
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            canvas.getContext("2d").drawImage(img, 0, 0);
+            const jpegBlob = await canvasToJpegBlob(canvas);
             jpegBytes = await blobToUint8(jpegBlob);
           }
-
-          const pdfBytes = buildPdfFromJpeg({
-            jpegBytes,
-            imgPixelWidth: naturalWidth,
-            imgPixelHeight: naturalHeight,
-          });
-
-          const pdfBlob = new Blob([pdfBytes], { type: "application/pdf" });
-          downloadBlob(pdfBlob, "spanduk-3x1m.pdf");
-          setStatus("PDF 3×1 m siap diunduh.", { show: true });
-        } catch (e) {
-          setStatus("Gagal membuat PDF 3×1 m.");
+          const pdfBytes = buildPdfFromJpeg({ jpegBytes, imgPixelWidth: img.naturalWidth, imgPixelHeight: img.naturalHeight });
+          downloadBlob(new Blob([pdfBytes], { type: "application/pdf" }), "spanduk-3x1m.pdf");
         } finally {
           btnPdf.disabled = false;
         }
