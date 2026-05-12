@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Spanduk</title>
+    <style>
+      :root {
+        --bg: #0b0f14;
+        --panel: #121826;
+        --text: #e5e7eb;
+        --muted: #9ca3af;
+        --btn: #1f2937;
+        --btnHover: #243042;
+        --accent: #22c55e;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji",
+          "Segoe UI Emoji";
+        background: var(--bg);
+        color: var(--text);
+      }
+      .wrap {
+        min-height: 100%;
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+      }
+      header {
+        padding: 14px 16px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(18, 24, 38, 0.85);
+        backdrop-filter: blur(6px);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+      }
+      .bar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        justify-content: space-between;
+        flex-wrap: wrap;
+      }
+      .title {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 240px;
+      }
+      .title strong {
+        font-size: 14px;
+        letter-spacing: 0.2px;
+      }
+      .title span {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .actions {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      input[type="file"] {
+        display: none;
+      }
+      button {
+        appearance: none;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        background: var(--btn);
+        color: var(--text);
+        padding: 9px 12px;
+        border-radius: 10px;
+        font-weight: 600;
+        letter-spacing: 0.2px;
+        cursor: pointer;
+        transition: background 120ms ease, transform 80ms ease;
+      }
+      button:hover {
+        background: var(--btnHover);
+      }
+      button:active {
+        transform: translateY(1px);
+      }
+      button.primary {
+        background: rgba(34, 197, 94, 0.16);
+        border-color: rgba(34, 197, 94, 0.55);
+      }
+      button.primary:hover {
+        background: rgba(34, 197, 94, 0.22);
+      }
+      main {
+        padding: 18px 16px 22px;
+        display: grid;
+        place-items: center;
+      }
+      .stage {
+        width: min(1400px, 100%);
+        background: var(--panel);
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        border-radius: 14px;
+        padding: 14px;
+      }
+      .banner {
+        width: 100%;
+        height: auto;
+        display: block;
+        border-radius: 10px;
+        background: #0b0f14;
+        outline: 1px solid rgba(255, 255, 255, 0.08);
+      }
+      .hint {
+        margin-top: 10px;
+        font-size: 12px;
+        color: var(--muted);
+        line-height: 1.45;
+      }
+      .hint code {
+        background: rgba(255, 255, 255, 0.08);
+        padding: 2px 6px;
+        border-radius: 8px;
+        color: #fff;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      }
+      .status {
+        margin-top: 10px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.04);
+        font-size: 12px;
+        color: var(--text);
+        display: none;
+      }
+      .status.show {
+        display: block;
+      }
+      footer {
+        padding: 12px 16px;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        color: var(--muted);
+        font-size: 12px;
+      }
+      @media print {
+        header,
+        footer {
+          display: none !important;
+        }
+        body {
+          background: #fff;
+        }
+        main {
+          padding: 0;
+        }
+        .stage {
+          padding: 0;
+          border: none;
+          background: transparent;
+        }
+        .banner {
+          border-radius: 0;
+          outline: none;
+        }
+        .hint,
+        .status {
+          display: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <div class="bar">
+          <div class="title">
+            <strong>Spanduk (Web)</strong>
+            <span>Output akan sama persis selama file gambar sumbernya sama</span>
+          </div>
+          <div class="actions">
+            <button class="primary" id="btnPrint" type="button">Cetak (Print)</button>
+            <button id="btnDownload" type="button">Unduh PNG</button>
+            <button id="btnPick" type="button">Pilih Gambar</button>
+            <input id="fileInput" type="file" accept="image/*" />
+            <button id="btnFit" type="button">Fit Lebar</button>
+          </div>
+        </div>
+      </header>
+
+      <main>
+        <div class="stage" id="stage">
+          <img class="banner" id="banner" alt="Spanduk" src="./spanduk.png" />
+          <div class="hint">
+            Jika gambar tidak muncul: klik <code>Pilih Gambar</code> atau drag &amp; drop file gambar ke area ini. Alternatif:
+            simpan file bernama <code>spanduk.png</code> di folder yang sama dengan <code>index.html</code>.
+          </div>
+          <div class="status" id="status" aria-live="polite"></div>
+        </div>
+      </main>
+
+      <footer>Tip: gunakan tombol “Cetak” untuk menyimpan sebagai PDF dengan skala 100%.</footer>
+    </div>
+
+    <script>
+      const img = document.getElementById("banner");
+      const stage = document.getElementById("stage");
+      const btnPrint = document.getElementById("btnPrint");
+      const btnDownload = document.getElementById("btnDownload");
+      const btnFit = document.getElementById("btnFit");
+      const btnPick = document.getElementById("btnPick");
+      const fileInput = document.getElementById("fileInput");
+      const statusEl = document.getElementById("status");
+      let objectUrl = null;
+      let currentFileName = "spanduk.png";
+
+      const setStatus = (message, { show = true } = {}) => {
+        if (!statusEl) return;
+        statusEl.textContent = message || "";
+        statusEl.classList.toggle("show", Boolean(show && message));
+      };
+
+      const loadFile = (file) => {
+        if (!file) return;
+        if (!file.type || !file.type.startsWith("image/")) {
+          setStatus("File yang dipilih bukan gambar.");
+          return;
+        }
+        if (objectUrl) URL.revokeObjectURL(objectUrl);
+        objectUrl = URL.createObjectURL(file);
+        currentFileName = file.name || "spanduk.png";
+        img.src = objectUrl;
+        setStatus(`Memuat: ${currentFileName}`);
+      };
+
+      btnPrint.addEventListener("click", () => window.print());
+
+      btnFit.addEventListener("click", () => {
+        stage.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+
+      btnPick.addEventListener("click", () => fileInput.click());
+      fileInput.addEventListener("change", (e) => {
+        const file = e.target?.files?.[0];
+        loadFile(file);
+      });
+
+      stage.addEventListener("dragover", (e) => {
+        e.preventDefault();
+      });
+      stage.addEventListener("drop", (e) => {
+        e.preventDefault();
+        const file = e.dataTransfer?.files?.[0];
+        loadFile(file);
+      });
+
+      img.addEventListener("load", () => {
+        if (img.naturalWidth && img.naturalHeight) {
+          setStatus(`Siap: ${img.naturalWidth}×${img.naturalHeight} (${currentFileName})`, { show: true });
+        } else {
+          setStatus("");
+        }
+      });
+      img.addEventListener("error", () => {
+        setStatus("Gambar tidak ditemukan. Gunakan tombol “Pilih Gambar” atau pastikan ada file spanduk.png di folder ini.");
+      });
+
+      btnDownload.addEventListener("click", async () => {
+        await img.decode().catch(() => {});
+        const canvas = document.createElement("canvas");
+        const naturalWidth = img.naturalWidth || 0;
+        const naturalHeight = img.naturalHeight || 0;
+        if (!naturalWidth || !naturalHeight) {
+          setStatus("Belum ada gambar yang berhasil dimuat untuk diunduh.");
+          return;
+        }
+        canvas.width = naturalWidth;
+        canvas.height = naturalHeight;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          setStatus("Gagal menyiapkan canvas untuk unduhan.");
+          return;
+        }
+        ctx.drawImage(img, 0, 0);
+        const a = document.createElement("a");
+        a.download = currentFileName.toLowerCase().endsWith(".png") ? currentFileName : "spanduk.png";
+        a.href = canvas.toDataURL("image/png");
+        a.click();
+      });
+    </script>
+  </body>
+</html>
